@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AMTZ Tags Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=4">
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@14.0.1"></script>
 </head>
 <body>
     <header>
@@ -20,7 +21,6 @@
                     <span class="admin-badge"><i class="fa-solid fa-shield-halved"></i> ADMIN</span>
                     <button class="btn-secondary" onclick="openModal('meta-modal')">Manage Lists</button>
                     <button class="btn-secondary" onclick="openModal('bulk-modal')">Bulk Upload</button>
-                    <button class="btn-secondary" onclick="copyConfig()">Export JS</button>
                     <button class="btn-danger" onclick="logout()">Logout</button>
                 </div>
             </div>
@@ -39,8 +39,7 @@
                 <button class="btn-secondary" onclick="resetFilters()">Reset</button>
             </div>
             <div class="actions">
-                <span id="stats-count" class="stats">Loading...</span>
-                <span id="stats-filter" class="stats hidden"></span>
+                <span id="stats-count" class="stats">Connecting to Cloud...</span>
                 <button class="btn-secondary" onclick="exportToCSV()"><i class="fa-solid fa-download"></i> CSV</button>
                 <button id="add-btn" class="btn-primary hidden" onclick="openOrgModal()">+ Add Org</button>
             </div>
@@ -62,17 +61,17 @@
                 <tbody id="table-body"></tbody>
             </table>
         </div>
-        <div id="empty-state" class="empty-state hidden">No organizations match your filters.</div>
+        <div id="empty-state" class="empty-state hidden">No organizations found.</div>
     </main>
 
     <div id="toast-container"></div>
 
     <div id="login-modal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 400px;">
             <h2 style="margin-top:0;"><i class="fa-solid fa-lock"></i> Admin Login</h2>
             <div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">
-                <input type="email" id="login-email" placeholder="Email Address">
-                <input type="password" id="login-pass" placeholder="Password">
+                <input type="email" id="login-email" placeholder="Admin Email" class="input-cell" style="padding: 10px;">
+                <input type="password" id="login-pass" placeholder="Password" class="input-cell" style="padding: 10px;" onkeyup="if(event.key === 'Enter') login()">
                 <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
                     <button class="btn-secondary" onclick="closeModal('login-modal')">Cancel</button>
                     <button class="btn-primary" onclick="login()">Login</button>
@@ -84,37 +83,25 @@
     <div id="org-modal" class="modal hidden">
         <div class="modal-content">
             <h2 style="margin-top:0;">Organization Details</h2>
-            <input type="text" id="edit-name" placeholder="Organization Name" style="width:100%; margin-bottom:15px;">
-            
+            <input type="text" id="edit-name" placeholder="Organization Name" style="width:100%; margin-bottom:15px; padding: 10px;" class="input-cell">
             <div class="form-grid">
-                <div><label>Twitter/X (@)</label><input type="text" id="tag-twitter" placeholder="@handle"></div>
-                <div><label>Instagram (@)</label><input type="text" id="tag-instagram" placeholder="@handle"></div>
-                
-                <div><label>LinkedIn Vanity</label><input type="text" id="tag-linkedin-val" placeholder="@handle"></div>
-                <div><label>LinkedIn Full URL</label><input type="text" id="tag-linkedin-link" placeholder="https://..."></div>
-                
-                <div><label>Facebook Vanity</label><input type="text" id="tag-facebook-val" placeholder="@handle"></div>
-                <div><label>Facebook Full URL</label><input type="text" id="tag-facebook-link" placeholder="https://..."></div>
-
-                <div><label>Website Display</label><input type="text" id="tag-website-val" placeholder="Visit Site"></div>
-                <div><label>Website URL</label><input type="text" id="tag-website-link" placeholder="https://..."></div>
+                <div><label>Twitter/X (@)</label><input type="text" id="tag-twitter" placeholder="@handle" class="input-cell"></div>
+                <div><label>Instagram (@)</label><input type="text" id="tag-instagram" placeholder="@handle" class="input-cell"></div>
+                <div><label>LinkedIn Vanity</label><input type="text" id="tag-linkedin-val" placeholder="@handle" class="input-cell"></div>
+                <div><label>LinkedIn Full URL</label><input type="text" id="tag-linkedin-link" placeholder="https://..." class="input-cell"></div>
+                <div><label>Facebook Vanity</label><input type="text" id="tag-facebook-val" placeholder="@handle" class="input-cell"></div>
+                <div><label>Facebook Full URL</label><input type="text" id="tag-facebook-link" placeholder="https://..." class="input-cell"></div>
+                <div><label>Website Display</label><input type="text" id="tag-website-val" placeholder="Visit Site" class="input-cell"></div>
+                <div><label>Website URL</label><input type="text" id="tag-website-link" placeholder="https://..." class="input-cell"></div>
             </div>
-
             <div style="display:flex; gap:20px; margin-top:15px;">
-                <div style="flex:1;">
-                    <label>Lists</label>
-                    <div id="check-lists" class="check-list"></div>
-                </div>
-                <div style="flex:1;">
-                    <label>Categories</label>
-                    <div id="check-cats" class="check-list"></div>
-                </div>
+                <div style="flex:1;"><label>Lists</label><div id="check-lists" class="check-list" style="border: 1px solid var(--border-color); padding: 10px; max-height: 150px; overflow-y: auto;"></div></div>
+                <div style="flex:1;"><label>Categories</label><div id="check-cats" class="check-list" style="border: 1px solid var(--border-color); padding: 10px; max-height: 150px; overflow-y: auto;"></div></div>
             </div>
-
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
                 <button class="btn-danger" style="margin-right:auto;" onclick="deleteOrg()"><i class="fa-solid fa-trash"></i> Delete</button>
                 <button class="btn-secondary" onclick="closeModal('org-modal')">Cancel</button>
-                <button class="btn-primary" onclick="saveOrg()">Save</button>
+                <button class="btn-primary" onclick="saveOrg()">Save to Cloud</button>
             </div>
         </div>
     </div>
@@ -125,68 +112,23 @@
                 <h2 style="margin-top:0;">Manage Lists & Categories</h2>
                 <button class="close-btn" onclick="closeModal('meta-modal')">&times;</button>
             </div>
-            
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:10px;">
                 <div>
                     <h3>Lists</h3>
                     <div style="display:flex; gap:5px; margin-bottom:10px;">
-                        <input type="text" id="new-list" placeholder="New List Name..." style="flex:1;">
+                        <input type="text" id="new-list" placeholder="New List Name..." style="flex:1;" class="input-cell">
                         <button class="btn-primary" onclick="addMeta('lists','new-list')">Add</button>
                     </div>
-                    <ul id="list-manager-ul" class="meta-ul"></ul>
+                    <ul id="list-manager-ul" class="meta-ul" style="list-style: none; padding: 0;"></ul>
                 </div>
                 <div>
                     <h3>Categories</h3>
                     <div style="display:flex; gap:5px; margin-bottom:10px;">
-                        <input type="text" id="new-cat" placeholder="New Category Name..." style="flex:1;">
-                        <button class="btn-primary" onclick="addMeta('cats','new-cat')">Add</button>
+                        <input type="text" id="new-cat" placeholder="New Category Name..." style="flex:1;" class="input-cell">
+                        <button class="btn-primary" onclick="addMeta('categories','new-cat')">Add</button>
                     </div>
-                    <ul id="cat-manager-ul" class="meta-ul"></ul>
+                    <ul id="cat-manager-ul" class="meta-ul" style="list-style: none; padding: 0;"></ul>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="populate-modal" class="modal hidden">
-        <div class="modal-content">
-            <h2 style="margin-top:0;">Add to <span id="target-name"></span></h2>
-            <p class="small-text">Select existing organizations to add to this list/category.</p>
-            
-            <div style="display:flex; gap:10px; margin-bottom:10px;">
-                <select id="pop-src-list" style="flex:1;" onchange="renderPopulateList()"></select>
-                <select id="pop-src-cat" style="flex:1;" onchange="renderPopulateList()"></select>
-            </div>
-
-            <div id="populate-check-list" class="check-list" style="max-height:250px; border:1px solid var(--border-color); padding:10px;"></div>
-
-            <div style="display:flex; justify-content:space-between; margin-top:15px;">
-                <button class="btn-secondary" onclick="triggerBulkForTarget()"><i class="fa-solid fa-file-excel"></i> Bulk Import Instead</button>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-secondary" onclick="closeModal('populate-modal')">Cancel</button>
-                    <button class="btn-primary" onclick="savePopulateSelection()">Add Selected</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="edit-meta-modal" class="modal hidden">
-        <div class="modal-content">
-            <h2 style="margin-top:0;">Edit <span id="edit-meta-type-label"></span></h2>
-            
-            <div style="margin-bottom:15px;">
-                <label>Rename:</label>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="rename-input" style="flex:1;">
-                    <button class="btn-primary" onclick="saveRenamedMeta()">Save Name</button>
-                </div>
-            </div>
-
-            <label>Current Organizations (Select to Remove):</label>
-            <div id="edit-meta-list-container" class="check-list" style="max-height:200px; border:1px solid var(--border-color); padding:10px; margin-bottom:15px;"></div>
-
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <button class="btn-danger" onclick="removeSelectedFromMeta()">Remove Selected</button>
-                <button class="btn-secondary" onclick="closeModal('edit-meta-modal')">Close</button>
             </div>
         </div>
     </div>
@@ -197,61 +139,28 @@
                 <h2 style="margin:0;"><i class="fa-solid fa-table"></i> Bulk Import from Excel</h2>
                 <div style="display:flex; gap:10px;">
                     <span style="display:flex; align-items:center;">Assign to List: </span>
-                    <select id="bulk-list"></select>
+                    <select id="bulk-list" class="input-cell" style="padding: 5px;"></select>
                 </div>
             </div>
             <p class="small-text">Copy your data from Excel and paste directly into the grid below. (Cmd/Ctrl + V)</p>
-            
             <div class="table-responsive" style="max-height:400px; overflow-y:auto; border:1px solid var(--border-color);">
                 <table id="bulk-table">
                     <thead>
                         <tr>
-                            <th>Organization Name</th>
-                            <th>Twitter (@)</th>
-                            <th>LinkedIn (@)</th>
-                            <th>LinkedIn (Link)</th>
-                            <th>Facebook (@)</th>
-                            <th>Facebook (Link)</th>
-                            <th>Instagram (@)</th>
-                            <th>Website (Link)</th>
+                            <th>Organization Name</th><th>Twitter (@)</th><th>LinkedIn (@)</th><th>LinkedIn (Link)</th>
+                            <th>Facebook (@)</th><th>Facebook (Link)</th><th>Instagram (@)</th><th>Website (Link)</th>
                         </tr>
                     </thead>
                     <tbody id="bulk-tbody"></tbody>
                 </table>
             </div>
-
             <div style="display:flex; justify-content:space-between; margin-top:15px;">
-                <div>
-                    <button class="btn-secondary" onclick="addBulkRows(10)">+10 Rows</button>
-                    <button class="btn-secondary" onclick="resetBulkGrid()">Reset Grid</button>
-                </div>
-                <div>
-                    <button class="btn-secondary" onclick="closeModal('bulk-modal')">Cancel</button>
-                    <button class="btn-primary" onclick="analyzeBulkUpload()">Analyze & Import</button>
-                </div>
+                <div><button class="btn-secondary" onclick="addBulkRows(10)">+10 Rows</button><button class="btn-secondary" onclick="resetBulkGrid()">Reset Grid</button></div>
+                <div><button class="btn-secondary" onclick="closeModal('bulk-modal')">Cancel</button><button class="btn-primary" onclick="analyzeBulkUpload()">Upload to Cloud</button></div>
             </div>
         </div>
     </div>
 
-    <div id="conflict-modal" class="modal hidden">
-        <div class="modal-content" style="max-width:700px;">
-            <h2 style="margin-top:0;"><i class="fa-solid fa-circle-exclamation" style="color:var(--danger-color);"></i> Conflicts Detected</h2>
-            <p><span id="conflict-count">0</span> organizations you imported already exist in the database.</p>
-            <p class="small-text">For each, you can <strong>Ignore</strong> (keep old data) or <strong>Overwrite</strong> (update with new data). Both actions will still link the organization to the new lists.</p>
-            
-            <div id="conflict-list" style="margin:20px 0; max-height:300px; overflow-y:auto;"></div>
-
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <button class="btn-secondary" onclick="resolveAll('ignore')">Ignore All</button>
-                <button class="btn-primary" onclick="resolveAll('overwrite')">Overwrite All</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const script = document.createElement('script');
-        script.src = 'app.js?v=' + new Date().getTime();
-        document.body.appendChild(script);
-    </script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>
