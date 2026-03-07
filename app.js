@@ -116,24 +116,31 @@ async function logout(){ try { await account.deleteSession('current'); } catch(e
 // ==========================================
 // 5. DEEP CONFLICT DETECTION ENGINE
 // ==========================================
-function detectConflict(newOrgObj, skipId) {
-    for (let org of db.orgs) {
-        if (skipId && org.id === skipId) continue; // Skip self if editing
+function detectConflict(newOrgObj, skipId, arrayToCheck = db.orgs) {
+    for (let org of arrayToCheck) {
+        if (skipId && org.id === skipId) continue;
+
+        const match = (a, b) => {
+            if (!a || !b) return false;
+            return a.toString().trim().toLowerCase() === b.toString().trim().toLowerCase();
+        };
 
         // 1. Check Name
-        if (newOrgObj.name && org.name && newOrgObj.name.toLowerCase() === org.name.toLowerCase()) return org;
+        if (match(newOrgObj.name, org.name)) return org;
 
-        // 2. Check Tags (Deep)
-        const nt = JSON.parse(newOrgObj.tags);
-        const ot = org.tags;
+        // 2. Check Deep Tags
+        const nt = typeof newOrgObj.tags === 'string' ? JSON.parse(newOrgObj.tags) : newOrgObj.tags;
+        const ot = typeof org.tags === 'string' ? JSON.parse(org.tags) : org.tags;
         
-        if (nt.twitter && ot.twitter && nt.twitter.toLowerCase() === ot.twitter.toLowerCase()) return org;
-        if (nt.instagram && ot.instagram && nt.instagram.toLowerCase() === ot.instagram.toLowerCase()) return org;
-        if (nt.linkedin?.link && ot.linkedin?.link && nt.linkedin.link.toLowerCase() === ot.linkedin.link.toLowerCase()) return org;
-        if (nt.facebook?.link && ot.facebook?.link && nt.facebook.link.toLowerCase() === ot.facebook.link.toLowerCase()) return org;
-        if (nt.website?.link && ot.website?.link && nt.website.link.toLowerCase() === ot.website.link.toLowerCase()) return org;
+        if (match(nt.twitter, ot.twitter)) return org;
+        if (match(nt.instagram, ot.instagram)) return org;
+        if (match(nt.linkedin?.link, ot.linkedin?.link)) return org;
+        if (match(nt.linkedin?.val, ot.linkedin?.val)) return org;
+        if (match(nt.facebook?.link, ot.facebook?.link)) return org;
+        if (match(nt.facebook?.val, ot.facebook?.val)) return org;
+        if (match(nt.website?.link, ot.website?.link)) return org;
     }
-    return null; // No conflict found
+    return null;
 }
 
 function processConflictQueue() {
@@ -145,41 +152,44 @@ function processConflictQueue() {
     
     const current = pendingConflicts[0];
     document.getElementById('conflict-details').innerHTML = `
-        <div style="margin-bottom:8px;"><strong>Attempting to add:</strong> <span style="color:var(--primary-color)">${current.newObj.name}</span></div>
+        <div style="margin-bottom:8px;"><strong>Attempting to save:</strong> <span style="color:var(--primary-color)">${current.newObj.name}</span></div>
         <div><strong>Matches Existing Org:</strong> <span style="color:var(--danger-color)">${current.existingOrg.name}</span> 
-        <br><small style="color:#666;">(ID: ${current.existingOrg.id})</small></div>
+        <br><small style="color:#666;">(Admin ID: ${current.existingOrg.id || current.existingOrg.$id})</small></div>
     `;
     openModal('conflict-modal');
 }
 
 async function resolveConflict(action) {
     const current = pendingConflicts.shift(); // Pop first item off queue
-    const existingId = current.existingOrg.id;
-    const existingListIds = current.existingOrg.listIds;
-    const newListIds = current.newObj.listIds;
+    const existingId = current.existingOrg.id || current.existingOrg.$id;
+    const existingListIds = current.existingOrg.listIds || [];
+    const newListIds = current.newObj.listIds || [];
 
     // Merge Lists uniquely so it exists in all previous lists AND the newly requested lists
     const combinedLists = [...new Set([...existingListIds, ...newListIds])];
 
     showToast("Resolving...");
     try {
+        // If this conflict happened while editing, delete the old duplicate document to finalize the merge
+        if (current.isEdit && current.editOldId) {
+            try { await databases.deleteDocument(DB_ID, 'organizations', current.editOldId); } catch(e){}
+        }
+
         if (action === 'overwrite') {
-            // Replace everything (name, tags, categories) AND update list IDs
             await databases.updateDocument(DB_ID, 'organizations', existingId, {
                 name: current.newObj.name,
                 listIds: combinedLists,
                 catIds: current.newObj.catIds,
-                tags: current.newObj.tags
+                tags: typeof current.newObj.tags === 'string' ? current.newObj.tags : JSON.stringify(current.newObj.tags)
             });
         } else if (action === 'delete') {
-            // Discard new tags/name, ONLY update the list IDs of the existing record
             await databases.updateDocument(DB_ID, 'organizations', existingId, {
                 listIds: combinedLists
             });
         }
     } catch (e) { showToast("Error resolving conflict", "error"); }
 
-    processConflictQueue(); // Load next conflict if any exist (Bulk Uploads)
+    processConflictQueue(); 
 }
 
 // ==========================================
@@ -191,17 +201,17 @@ async function saveOrg(){
     const c = Array.from(document.querySelectorAll('#check-cats input:checked')).map(x=>x.value); 
     const tags = {
         twitter: ensureHandle(document.getElementById('tag-twitter').value), instagram: ensureHandle(document.getElementById('tag-instagram').value), 
-        linkedin:{val:document.getElementById('tag-linkedin-val').value.trim(), link:document.getElementById('tag-linkedin-link').value.trim()}, 
-        facebook:{val:document.getElementById('tag-facebook-val').value.trim(), link:document.getElementById('tag-facebook-link').value.trim()}, 
+        linkedin:{val:ensureHandle(document.getElementById('tag-linkedin-val').value), link:document.getElementById('tag-linkedin-link').value.trim()}, 
+        facebook:{val:ensureHandle(document.getElementById('tag-facebook-val').value), link:document.getElementById('tag-facebook-link').value.trim()}, 
         website:{val:document.getElementById('tag-website-val').value.trim(), link:document.getElementById('tag-website-link').value.trim()}
     }; 
     
     const dataObj = { name: n, listIds: l, catIds: c, tags: JSON.stringify(tags) };
 
     // Check for Conflicts before saving
-    const conflictOrg = detectConflict(dataObj, editingId);
+    const conflictOrg = detectConflict(dataObj, editingId, db.orgs);
     if (conflictOrg) {
-        pendingConflicts = [{ newObj: dataObj, existingOrg: conflictOrg }];
+        pendingConflicts = [{ newObj: dataObj, existingOrg: conflictOrg, isEdit: !!editingId, editOldId: editingId }];
         closeModal('org-modal');
         processConflictQueue();
         return;
@@ -224,7 +234,7 @@ async function analyzeBulkUpload() {
     const targetList = document.getElementById('bulk-list').value;
     const targetListIds = ['master']; if(targetList && targetList !== 'master') targetListIds.push(targetList);
     
-    pendingConflicts = []; // Reset queue
+    pendingConflicts = []; 
     let cleanOrgs = [];
 
     for(let i=0; i<rows.length; i++) {
@@ -233,35 +243,49 @@ async function analyzeBulkUpload() {
         if(!name) continue;
         
         const tags = {
-            twitter: validateTag(inputs[1].value), linkedin: { val: validateTag(inputs[2].value), link: inputs[3].value.trim() },
-            facebook: { val: validateTag(inputs[4].value), link: inputs[5].value.trim() }, instagram: validateTag(inputs[6].value),
+            twitter: ensureHandle(inputs[1].value), 
+            linkedin: { val: ensureHandle(inputs[2].value), link: inputs[3].value.trim() },
+            facebook: { val: ensureHandle(inputs[4].value), link: inputs[5].value.trim() }, 
+            instagram: ensureHandle(inputs[6].value),
             website: { val: inputs[7].value.trim() ? "Visit Site" : "", link: inputs[7].value.trim() }
         };
         
         const dataObj = { name: name, listIds: [...targetListIds], catIds: [], tags: JSON.stringify(tags), starredIn: JSON.stringify({}) };
         
-        const conflictOrg = detectConflict(dataObj, null);
+        // 1. Check against Cloud DB
+        let conflictOrg = detectConflict(dataObj, null, db.orgs);
+        // 2. Check against the batch we are currently uploading
+        if (!conflictOrg) conflictOrg = detectConflict(dataObj, null, cleanOrgs);
+
         if (conflictOrg) {
-            pendingConflicts.push({ newObj: dataObj, existingOrg: conflictOrg });
+            pendingConflicts.push({ newObj: dataObj, existingOrg: conflictOrg, isEdit: false });
         } else {
+            // Need a temporary ID for local cross-checking
+            dataObj.id = "temp_" + i; 
             cleanOrgs.push(dataObj);
         }
     }
     
     closeModal('bulk-modal');
-    showToast(`Processing ${cleanOrgs.length} clean records... please wait.`);
+    if (cleanOrgs.length > 0) showToast(`Uploading ${cleanOrgs.length} clean records... please wait.`);
 
-    // 1. Upload all clean organizations silently
+    // Upload clean orgs silently
     for(let org of cleanOrgs) {
-        try { await databases.createDocument(DB_ID, 'organizations', ID.unique(), org); } 
+        try { 
+            delete org.id; // Remove the temp ID before sending to Appwrite
+            const created = await databases.createDocument(DB_ID, 'organizations', ID.unique(), org); 
+            // Add to local state instantly so the conflict queue knows it exists
+            db.orgs.push({ id: created.$id, name: created.name, listIds: created.listIds, tags: JSON.parse(created.tags) });
+        } 
         catch(e) { console.error("Failed to upload row: " + org.name); }
     }
 
-    // 2. Trigger Queue if there were conflicts
+    // Trigger Popups for the rest
     if (pendingConflicts.length > 0) {
         processConflictQueue();
     } else {
         showToast("Bulk import complete!");
+        fetchCloudData();
     }
 }
 
@@ -375,7 +399,7 @@ function copyColumn(t) {
     navigator.clipboard.writeText(tagsToCopy.join('\n')); showToast(msg);
 }
 
-function exportToCSV() { /* Code remains exactly the same */ }
+function exportToCSV() { /* Code remains identical */ }
 function resetFilters() { document.getElementById('filter-list').value = 'all'; document.getElementById('filter-cat').value = 'all'; document.getElementById('search-bar').value = ''; renderTable(); }
 
 // ==========================================
@@ -392,5 +416,4 @@ function initBulkRows(count) { document.getElementById('bulk-tbody').innerHTML =
 function addBulkRows(count) { const tbody = document.getElementById('bulk-tbody'); for(let i=0; i<count; i++) { tbody.innerHTML += `<tr class="bulk-row"><td><input type="text" class="input-cell" placeholder="Name"></td><td><input type="text" class="input-cell" placeholder="@handle"></td><td><input type="text" class="input-cell" placeholder="@handle"></td><td><input type="text" class="input-cell" placeholder="Full Link"></td><td><input type="text" class="input-cell" placeholder="@handle"></td><td><input type="text" class="input-cell" placeholder="Full Link"></td><td><input type="text" class="input-cell" placeholder="@handle"></td><td><input type="text" class="input-cell" placeholder="Full Link"></td></tr>`; } }
 function handleGridPaste(e) { e.preventDefault(); const cb = (e.clipboardData || window.clipboardData).getData('text'); const rows = cb.split(/\r\n|\n|\r/).filter(r => r.length > 0); let tgt = e.target; if (tgt.tagName !== 'INPUT') return; let tr = tgt.closest('tr'); let srIdx = Array.from(tr.parentElement.children).indexOf(tr); let scIdx = Array.from(tr.children).indexOf(tgt.parentElement); const tb = document.getElementById('bulk-tbody'); rows.forEach((rData, rIdx) => { const cells = rData.split('\t'); if (srIdx + rIdx >= tb.children.length) addBulkRows(1); const tRow = tb.children[srIdx + rIdx]; cells.forEach((cData, cIdx) => { const tcIdx = scIdx + cIdx; if (tcIdx < tRow.children.length) { const inp = tRow.children[tcIdx].querySelector('input'); if (inp) { let cd = cData.trim(); if(cd.startsWith('"') && cd.endsWith('"')) cd = cd.substring(1, cd.length - 1); inp.value = cd; } } }); }); }
 function resetBulkGrid() { if(confirm("Discard grid data?")) initBulkRows(20); }
-function validateTag(val) { return val.trim().startsWith('@') ? val.trim() : ''; }
 function ensureHandle(val) { val = val.trim(); if (!val) return ''; return val.startsWith('@') ? val : '@' + val; }
