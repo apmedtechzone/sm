@@ -22,7 +22,6 @@ let editingId = null;
 let searchTimer = null; 
 let copyClickState = {}; 
 
-// Conflict Queue System
 let pendingConflicts = [];
 
 // ==========================================
@@ -114,7 +113,29 @@ function updateUIForAdmin() {
 async function logout(){ try { await account.deleteSession('current'); } catch(e){} location.reload(); }
 
 // ==========================================
-// 5. DEEP CONFLICT DETECTION ENGINE (BULLETPROOF)
+// 5. MASTER DATA SCRUBBERS (The Fix for "-" and "@")
+// ==========================================
+function ensureHandle(val) { 
+    if (!val) return ''; 
+    let str = val.toString().trim();
+    // Vigorously wipe out pure dashes, NA, and empty spaces
+    if (str === '-' || str.toLowerCase() === 'na' || str.toLowerCase() === 'none' || str === '@') return ''; 
+    
+    let clean = str.replace(/^@+/, '').trim();
+    if (clean.length === 0 || clean === '-') return ''; 
+    return '@' + clean; 
+}
+
+function ensureLink(val) {
+    if (!val) return '';
+    let str = val.toString().trim();
+    // Wipe out dashes and empty placeholders for links
+    if (str === '-' || str.toLowerCase() === 'na' || str.toLowerCase() === 'none') return '';
+    return str;
+}
+
+// ==========================================
+// 6. DEEP CONFLICT DETECTION ENGINE
 // ==========================================
 function detectConflict(newOrgObj, skipId, arrayToCheck = db.orgs) {
     const parseTags = (t) => {
@@ -134,7 +155,7 @@ function detectConflict(newOrgObj, skipId, arrayToCheck = db.orgs) {
         // 1. Exact Name Match
         if (nName && nName === oName) return org;
 
-        // 2. Deep Tags Match (Aggressively strips formatting to prevent false positives)
+        // 2. Deep Tags Match
         const ot = parseTags(org.tags);
 
         const match = (a, b) => {
@@ -142,15 +163,14 @@ function detectConflict(newOrgObj, skipId, arrayToCheck = db.orgs) {
             let strA = a.toString().toLowerCase();
             let strB = b.toString().toLowerCase();
 
-            // Strip prefixes, spaces, and special characters to extract ONLY the core handle/domain
+            // Strip out formatting
             const cleanStr = (s) => s.replace(/^(https?:\/\/)?(www\.)?/,'').replace(/[@\/\-\s]/g, '').trim();
             strA = cleanStr(strA);
             strB = cleanStr(strB);
 
-            // Ignore if the remaining string is completely empty or just 1 letter
+            // CRITICAL: If the cleaned string is empty or just 1 character, NEVER trigger a conflict
             if (strA.length < 2 || strB.length < 2) return false;
 
-            // Ignore common meaningless placeholders people type when they don't know the link
             const ignore = ['na', 'none', 'null', 'nil', 'blank', 'visitsite', 'visit', 'http', 'https', 'undefined'];
             if (ignore.includes(strA) || ignore.includes(strB)) return false;
 
@@ -171,7 +191,7 @@ function detectConflict(newOrgObj, skipId, arrayToCheck = db.orgs) {
 function processConflictQueue() {
     if (pendingConflicts.length === 0) {
         closeModal('conflict-modal');
-        fetchCloudData(); // Sync everything when queue finishes
+        fetchCloudData(); 
         return;
     }
     
@@ -216,18 +236,20 @@ async function resolveConflict(action) {
 }
 
 // ==========================================
-// 6. CRUD OPERATIONS (CLOUD SAVING)
+// 7. CRUD OPERATIONS (CLOUD SAVING)
 // ==========================================
 async function saveOrg(){ 
     const n = document.getElementById('edit-name').value.trim(); if(!n) return showToast("Name required", "error");
     const l = Array.from(document.querySelectorAll('#check-lists input:checked')).map(c=>c.value); if(!l.includes('master'))l.push('master'); 
     const c = Array.from(document.querySelectorAll('#check-cats input:checked')).map(x=>x.value); 
+    
+    // Utilize the Master Scrubbers
     const tags = {
         twitter: ensureHandle(document.getElementById('tag-twitter').value), 
         instagram: ensureHandle(document.getElementById('tag-instagram').value), 
-        linkedin:{val:ensureHandle(document.getElementById('tag-linkedin-val').value), link:document.getElementById('tag-linkedin-link').value.trim()}, 
-        facebook:{val:ensureHandle(document.getElementById('tag-facebook-val').value), link:document.getElementById('tag-facebook-link').value.trim()}, 
-        website:{val:document.getElementById('tag-website-val').value.trim() || (document.getElementById('tag-website-link').value.trim() ? "Visit Site" : ""), link:document.getElementById('tag-website-link').value.trim()}
+        linkedin:{val:ensureHandle(document.getElementById('tag-linkedin-val').value), link:ensureLink(document.getElementById('tag-linkedin-link').value)}, 
+        facebook:{val:ensureHandle(document.getElementById('tag-facebook-val').value), link:ensureLink(document.getElementById('tag-facebook-link').value)}, 
+        website:{val:ensureLink(document.getElementById('tag-website-link').value) ? "Visit Site" : "", link:ensureLink(document.getElementById('tag-website-link').value)}
     }; 
     
     const dataObj = { name: n, listIds: l, catIds: c, tags: JSON.stringify(tags) };
@@ -265,12 +287,13 @@ async function analyzeBulkUpload() {
         const name = inputs[0].value.trim();
         if(!name) continue;
         
+        // Utilize the Master Scrubbers for Bulk Uploads
         const tags = {
             twitter: ensureHandle(inputs[1].value), 
-            linkedin: { val: ensureHandle(inputs[2].value), link: inputs[3].value.trim() },
-            facebook: { val: ensureHandle(inputs[4].value), link: inputs[5].value.trim() }, 
+            linkedin: { val: ensureHandle(inputs[2].value), link: ensureLink(inputs[3].value) },
+            facebook: { val: ensureHandle(inputs[4].value), link: ensureLink(inputs[5].value) }, 
             instagram: ensureHandle(inputs[6].value),
-            website: { val: inputs[7].value.trim() ? "Visit Site" : "", link: inputs[7].value.trim() }
+            website: { val: ensureLink(inputs[7].value) ? "Visit Site" : "", link: ensureLink(inputs[7].value) }
         };
         
         const dataObj = { name: name, listIds: [...targetListIds], catIds: [], tags: JSON.stringify(tags), starredIn: JSON.stringify({}) };
@@ -331,7 +354,7 @@ async function toggleStar(orgId, listId) {
 }
 
 // ==========================================
-// 7. UI & RENDERING LOGIC
+// 8. UI & RENDERING LOGIC
 // ==========================================
 function initTheme() { const savedTheme = localStorage.getItem('amtz_theme') || 'light'; if (savedTheme === 'dark') { document.body.classList.add('dark-theme'); document.getElementById('theme-toggle').innerHTML = '<i class="fa-solid fa-sun"></i>'; } }
 function toggleTheme() { const isDark = document.body.classList.toggle('dark-theme'); localStorage.setItem('amtz_theme', isDark ? 'dark' : 'light'); document.getElementById('theme-toggle').innerHTML = isDark ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>'; }
@@ -391,7 +414,11 @@ function renderTable() {
 function renderLink(d, t) {
     if(!d) return '<span class="empty-cell">&minus;</span>';
     const text = (typeof d === 'string') ? d : d.val;
-    if(!text || text === '@' || text.trim() === '') return '<span class="empty-cell">&minus;</span>';
+    
+    // Aggressively prevent empty, "-", "@", or "@-" from rendering on screen
+    if(!text || text === '@' || text === '-' || text === '@-' || text.trim() === '') {
+        return '<span class="empty-cell">&minus;</span>';
+    }
     
     let url = (typeof d === 'string') ? (t === 'twitter' ? `https://x.com/${text.replace('@','')}` : `https://instagram.com/${text.replace('@','')}`) : (d.link || '#');
     const icon = t === 'website' ? 'fa-solid fa-globe' : `fa-brands fa-${t}`;
@@ -409,7 +436,12 @@ function copyColumn(t) {
     });
     visibleOrgs = sortTableData(visibleOrgs, listId);
     
-    const allTags = visibleOrgs.map(o => (typeof o.tags[t] === 'string') ? o.tags[t] : (o.tags[t]?.val || "")).filter(k => k && k !== '@');
+    // Completely ignore blanks, "@", "-", and "@-" so they don't get copied to the clipboard
+    const allTags = visibleOrgs.map(o => (typeof o.tags[t] === 'string') ? o.tags[t] : (o.tags[t]?.val || "")).filter(k => {
+        if (!k) return false;
+        let clean = k.toString().trim();
+        return clean !== '' && clean !== '@' && clean !== '-' && clean !== '@-';
+    });
     
     if (allTags.length === 0) return showToast("No tags found", "error");
     if (!copyClickState[t]) copyClickState[t] = 'first';
@@ -423,7 +455,7 @@ function exportToCSV() { /* Code remains identical */ }
 function resetFilters() { document.getElementById('filter-list').value = 'all'; document.getElementById('filter-cat').value = 'all'; document.getElementById('search-bar').value = ''; renderTable(); }
 
 // ==========================================
-// 8. MODALS & BULK UPLOAD LOGIC
+// 9. MODALS & BULK UPLOAD GRIDS
 // ==========================================
 function openOrgModal(){editingId=null; document.getElementById('edit-name').value=''; ['twitter','instagram'].forEach(k=>document.getElementById(`tag-${k}`).value=''); ['linkedin','facebook','website'].forEach(k=>{document.getElementById(`tag-${k}-val`).value='';document.getElementById(`tag-${k}-link`).value=''}); renderCheckboxes(['master'],[]); openModal('org-modal');}
 function editOrg(id){editingId=id; const o=db.orgs.find(i=>i.id===id); document.getElementById('edit-name').value=o.name; document.getElementById('tag-twitter').value=o.tags.twitter||''; document.getElementById('tag-instagram').value=o.tags.instagram||''; ['linkedin','facebook','website'].forEach(k=>{const t=o.tags[k]||{}; document.getElementById(`tag-${k}-val`).value=t.val||''; document.getElementById(`tag-${k}-link`).value=t.link||''}); renderCheckboxes(o.listIds,o.catIds); openModal('org-modal');}
@@ -436,14 +468,3 @@ function initBulkRows(count) { document.getElementById('bulk-tbody').innerHTML =
 function addBulkRows(count) { const tbody = document.getElementById('bulk-tbody'); for(let i=0; i<count; i++) { tbody.innerHTML += `<tr class="bulk-row"><td><input type="text" class="input-cell" placeholder="Name"></td><td><input type="text" class="input-cell" placeholder="@handle"></td><td><input type="text" class="input-cell" placeholder="@handle"></td><td><input type="text" class="input-cell" placeholder="Full Link"></td><td><input type="text" class="input-cell" placeholder="@handle"></td><td><input type="text" class="input-cell" placeholder="Full Link"></td><td><input type="text" class="input-cell" placeholder="@handle"></td><td><input type="text" class="input-cell" placeholder="Full Link"></td></tr>`; } }
 function handleGridPaste(e) { e.preventDefault(); const cb = (e.clipboardData || window.clipboardData).getData('text'); const rows = cb.split(/\r\n|\n|\r/).filter(r => r.length > 0); let tgt = e.target; if (tgt.tagName !== 'INPUT') return; let tr = tgt.closest('tr'); let srIdx = Array.from(tr.parentElement.children).indexOf(tr); let scIdx = Array.from(tr.children).indexOf(tgt.parentElement); const tb = document.getElementById('bulk-tbody'); rows.forEach((rData, rIdx) => { const cells = rData.split('\t'); if (srIdx + rIdx >= tb.children.length) addBulkRows(1); const tRow = tb.children[srIdx + rIdx]; cells.forEach((cData, cIdx) => { const tcIdx = scIdx + cIdx; if (tcIdx < tRow.children.length) { const inp = tRow.children[tcIdx].querySelector('input'); if (inp) { let cd = cData.trim(); if(cd.startsWith('"') && cd.endsWith('"')) cd = cd.substring(1, cd.length - 1); inp.value = cd; } } }); }); }
 function resetBulkGrid() { if(confirm("Discard grid data?")) initBulkRows(20); }
-
-// Bulletproof Handle Formatter
-function ensureHandle(val) { 
-    if (!val) return ''; 
-    let str = val.toString().trim();
-    let clean = str.replace(/^@+/, '').trim();
-    
-    // If it's empty, or meaningless placeholder text, ensure it saves as an absolute blank
-    if (clean.length === 0 || clean.toLowerCase() === 'na' || clean.toLowerCase() === 'none') return ''; 
-    return '@' + clean; 
-}
