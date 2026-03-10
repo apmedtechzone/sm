@@ -1,13 +1,28 @@
+// ==========================================
+// 1. APPWRITE INITIALIZATION
+// ==========================================
 const { Client, Account, Databases, ID, Query } = Appwrite;
 const client = new Client().setEndpoint('https://sgp.cloud.appwrite.io/v1').setProject('69abc18f00304e23f121');             
 const account = new Account(client);
 const databases = new Databases(client);
 const DB_ID = '69abd4a8000d0b820e8b'; 
 
-let isAdmin = false; let db = { lists: [], cats: [], orgs: [] }; 
-let editingId = null; let searchTimer = null; let copyClickState = {}; let pendingConflicts = []; let draggedRow = null;
-let metaDragId = null; let metaDragType = null; // Used for reordering lists/categories
+// ==========================================
+// 2. STATE & GLOBALS
+// ==========================================
+let isAdmin = false; 
+let db = { lists: [], cats: [], orgs: [] }; 
+let editingId = null; 
+let searchTimer = null; 
+let copyClickState = {}; 
+let pendingConflicts = []; 
+let draggedRow = null;
+let metaDragId = null; 
+let metaDragType = null; 
 
+// ==========================================
+// 3. STARTUP & CLOUD FETCHING
+// ==========================================
 async function initApp() {
     initTheme(); initBulkRows(20); 
     try { await account.get(); isAdmin = true; updateUIForAdmin(); } catch (e) { isAdmin = false; }
@@ -33,13 +48,22 @@ async function fetchCloudData() {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp); else initApp();
 
-async function login() { try { await account.createEmailPasswordSession(document.getElementById('login-email').value, document.getElementById('login-pass').value); isAdmin = true; updateUIForAdmin(); closeModal('login-modal'); } catch (e) {} }
+// ==========================================
+// 4. AUTHENTICATION
+// ==========================================
+async function login() { try { await account.createEmailPasswordSession(document.getElementById('login-email').value, document.getElementById('login-pass').value); isAdmin = true; updateUIForAdmin(); closeModal('login-modal'); } catch (e) { showToast("Login failed", "error"); } }
 function updateUIForAdmin() { document.getElementById('admin-panel').classList.remove('hidden'); document.getElementById('login-trigger').classList.add('hidden'); document.getElementById('add-btn').classList.remove('hidden'); document.querySelectorAll('.admin-only').forEach(el=>el.classList.remove('hidden')); renderTable(); }
 async function logout(){ try { await account.deleteSession('current'); } catch(e){} location.reload(); }
 
+// ==========================================
+// 5. MASTER DATA SCRUBBERS
+// ==========================================
 function ensureHandle(val) { if (!val) return ''; let str = val.toString().trim(); if (str === '-' || str === '@-' || str === '@' || str.toLowerCase() === 'na' || str.toLowerCase() === 'none') return ''; let clean = str.replace(/^@+/, '').trim(); if (clean.length === 0 || clean === '-') return ''; return '@' + clean; }
 function ensureLink(val) { if (!val) return ''; let str = val.toString().trim(); if (str === '-' || str.toLowerCase() === 'na' || str.toLowerCase() === 'none') return ''; return str; }
 
+// ==========================================
+// 6. DEEP CONFLICT DETECTION ENGINE
+// ==========================================
 function detectConflict(newOrgObj, skipId, arrayToCheck = db.orgs) {
     const parseTags = (t) => { if (!t) return {}; if (typeof t === 'object') return t; try { return JSON.parse(t); } catch(e) { return {}; } };
     const nt = parseTags(newOrgObj.tags);
@@ -86,6 +110,9 @@ async function resolveConflict(action) {
     processConflictQueue(); 
 }
 
+// ==========================================
+// 7. CRUD OPERATIONS
+// ==========================================
 async function saveOrg(){ 
     const n = document.getElementById('edit-name').value.trim(); if(!n) return showToast("Name required", "error");
     const l = Array.from(document.querySelectorAll('#check-lists input:checked')).map(c=>c.value); if(!l.includes('master'))l.push('master'); 
@@ -119,12 +146,15 @@ async function deleteOrg(){ if(editingId && confirm('Delete permanently?')){ try
 async function addMeta(t, i){ const n = document.getElementById(i).value; if(!n) return; try { await databases.createDocument(DB_ID, t, ID.unique(), { name: n, order: Date.now() }); document.getElementById(i).value=''; } catch(e) {} }
 async function removeMeta(t, id){ if(!confirm("Delete this list/category?")) return; try { await databases.deleteDocument(DB_ID, t, id); } catch(e) {} }
 
-// ORGANIZATION DRAG AND DROP
+// ==========================================
+// 8. ORGANIZATION DRAG AND DROP
+// ==========================================
 function handleDragStart(e) { if (!isAdmin || document.getElementById('search-bar').value.trim() !== '') return e.preventDefault(); draggedRow = e.target.closest('tr'); draggedRow.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedRow.dataset.id); }
 function handleDragOver(e) { if (!isAdmin || !draggedRow) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const tbody = document.getElementById('table-body'); const afterElement = getDragAfterElement(tbody, e.clientY); if (afterElement == null) { tbody.appendChild(draggedRow); } else { tbody.insertBefore(draggedRow, afterElement); } }
 function handleDragEnd(e) { if (!isAdmin || !draggedRow) return; draggedRow.classList.remove('dragging'); updateOrderAfterDrop(draggedRow); draggedRow = null; }
 function getDragAfterElement(container, y) { const draggableElements = [...container.querySelectorAll('tr.draggable-row:not(.dragging)')]; return draggableElements.reduce((closest, child) => { const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2; if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } else { return closest; } }, { offset: Number.NEGATIVE_INFINITY }).element; }
 function getOrgOrderVal(org, listId) { if (org.orderData && org.orderData[listId] !== undefined) return Number(org.orderData[listId]); return org.createdAt || 0; }
+
 async function updateOrderAfterDrop(row) {
     const listId = document.getElementById('filter-list').value; const orgId = row.dataset.id; const prevRow = row.previousElementSibling; const nextRow = row.nextElementSibling;
     const prevOrg = prevRow ? db.orgs.find(o => o.id === prevRow.dataset.id) : null; const nextOrg = nextRow ? db.orgs.find(o => o.id === nextRow.dataset.id) : null;
@@ -134,6 +164,9 @@ async function updateOrderAfterDrop(row) {
     try { await databases.updateDocument(DB_ID, 'organizations', orgId, { starredIn: JSON.stringify(org.orderData) }); } catch(e) {}
 }
 
+// ==========================================
+// 9. UI & RENDERING LOGIC
+// ==========================================
 function initTheme() { const savedTheme = localStorage.getItem('amtz_theme') || 'light'; if (savedTheme === 'dark') { document.body.classList.add('dark-theme'); document.getElementById('theme-toggle').innerHTML = '<i class="fa-solid fa-sun"></i>'; } }
 function toggleTheme() { const isDark = document.body.classList.toggle('dark-theme'); localStorage.setItem('amtz_theme', isDark ? 'dark' : 'light'); document.getElementById('theme-toggle').innerHTML = isDark ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>'; }
 function sortMeta(data) { return data.sort((a,b) => { if (a.id === 'master') return -1; if (b.id === 'master') return 1; if (a.order !== b.order) return a.order - b.order; return a.name.localeCompare(b.name); }); }
@@ -172,8 +205,6 @@ function renderLink(d, t) {
     if(!d) return '<span class="empty-cell">&minus;</span>'; const text = (typeof d === 'string') ? d : d.val;
     if(!text || text === '@' || text === '-' || text === '@-' || text.trim() === '') return '<span class="empty-cell">&minus;</span>';
     let url = (typeof d === 'string') ? (t === 'twitter' ? `https://x.com/${text.replace('@','')}` : `https://instagram.com/${text.replace('@','')}`) : (d.link || '#');
-    
-    // UPDATED: Dynamically uses the new X Logo
     const icon = t === 'website' ? 'fa-solid fa-globe' : (t === 'twitter' ? 'fa-brands fa-x-twitter' : `fa-brands fa-${t}`);
     return `<a href="${url}" target="_blank" class="tag-link" title="${text}"><i class="${icon}"></i> <span class="tag-truncate">${text.substring(0, 12)}${text.length>12?'...':''}</span></a>`;
 }
@@ -189,13 +220,73 @@ function copyColumn(t) {
     navigator.clipboard.writeText(tagsToCopy.join('\n')); showToast(msg);
 }
 
-function exportToCSV() { /* Logic unchanged */ }
+// ==========================================
+// 10. CSV EXPORT INTEGRATION
+// ==========================================
+function exportToCSV() {
+    const listId = document.getElementById('filter-list').value;
+    const catId = document.getElementById('filter-cat').value;
+    const rawSearch = document.getElementById('search-bar').value.toLowerCase();
+    const searchGroups = rawSearch.split(',').map(s => s.trim()).filter(s => s !== '');
+    
+    // Filter to match exactly what is on screen
+    let visibleOrgs = db.orgs.filter(org => {
+        if (listId !== 'all' && !org.listIds.includes(listId)) return false;
+        if (catId !== 'all' && !org.catIds.includes(catId)) return false;
+        if (searchGroups.length > 0) {
+            let txt = org.name.toLowerCase();
+            Object.values(org.tags).forEach(t => { 
+                if(typeof t === 'string') txt += " " + t.toLowerCase(); 
+                else if(t && t.val) txt += " " + t.val.toLowerCase() + " " + (t.link||"").toLowerCase(); 
+            });
+            return searchGroups.some(group => group.split(' ').filter(t => t).every(term => txt.includes(term)));
+        }
+        return true;
+    });
+    
+    visibleOrgs = sortTableData(visibleOrgs, listId);
+    
+    if (visibleOrgs.length === 0) return showToast("No data to export", "error");
+    
+    let csvContent = "data:text/csv;charset=utf-8,Organization,Twitter,LinkedIn,Facebook,Instagram,Website\n";
+    
+    visibleOrgs.forEach(org => {
+        const t = org.tags;
+        const tw = t.twitter && t.twitter !== '@' && t.twitter !== '-' ? t.twitter : '';
+        const in_ = t.instagram && t.instagram !== '@' && t.instagram !== '-' ? t.instagram : '';
+        const li = t.linkedin?.link && t.linkedin.link !== '-' ? t.linkedin.link : (t.linkedin?.val || '');
+        const fb = t.facebook?.link && t.facebook.link !== '-' ? t.facebook.link : (t.facebook?.val || '');
+        const web = t.website?.link && t.website.link !== '-' ? t.website.link : '';
+
+        // Safely wrap fields in quotes to prevent commas from breaking columns
+        const row = [
+            `"${org.name.replace(/"/g, '""')}"`,
+            `"${tw.replace(/"/g, '""')}"`,
+            `"${li.replace(/"/g, '""')}"`,
+            `"${fb.replace(/"/g, '""')}"`,
+            `"${in_.replace(/"/g, '""')}"`,
+            `"${web.replace(/"/g, '""')}"`
+        ];
+        csvContent += row.join(",") + "\n";
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "AMTZ_Tags_Export.csv");
+    document.body.appendChild(link); 
+    link.click(); 
+    document.body.removeChild(link);
+}
+
 function resetFilters() { document.getElementById('filter-list').value = 'all'; document.getElementById('filter-cat').value = 'all'; document.getElementById('search-bar').value = ''; renderTable(); }
 function openOrgModal(){editingId=null; document.getElementById('edit-name').value=''; ['twitter','instagram'].forEach(k=>document.getElementById(`tag-${k}`).value=''); ['linkedin','facebook','website'].forEach(k=>{document.getElementById(`tag-${k}-val`).value='';document.getElementById(`tag-${k}-link`).value=''}); renderCheckboxes(['master'],[]); openModal('org-modal');}
 function editOrg(id){editingId=id; const o=db.orgs.find(i=>i.id===id); document.getElementById('edit-name').value=o.name; document.getElementById('tag-twitter').value=o.tags.twitter||''; document.getElementById('tag-instagram').value=o.tags.instagram||''; ['linkedin','facebook','website'].forEach(k=>{const t=o.tags[k]||{}; document.getElementById(`tag-${k}-val`).value=t.val||''; document.getElementById(`tag-${k}-link`).value=t.link||''}); renderCheckboxes(o.listIds,o.catIds); openModal('org-modal');}
 function renderCheckboxes(sl, sc){ const b=(d,s,id)=>document.getElementById(id).innerHTML=sortMeta([...d]).map(i=>`<label style="display:block; margin-bottom:5px;" class="check-item ${i.id==='master'?'disabled':''}"><input type="checkbox" value="${i.id}" ${s.includes(i.id)||i.id==='master'?'checked':''} ${i.id==='master'?'disabled':''}> ${i.name}</label>`).join(''); b(db.lists,sl,'check-lists'); b(db.cats,sc,'check-cats'); }
 
-// LISTS AND CATEGORIES DRAG AND DROP
+// ==========================================
+// 11. LISTS AND CATEGORIES DRAG AND DROP
+// ==========================================
 function renderMetaList(){ 
     const render = (data, el, t) => { 
         document.getElementById(el).innerHTML = sortMeta([...data]).filter(x => x.id !== 'master').map(item => `
