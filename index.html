@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMTZ Master Portal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@14.0.1"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AMTZ Portal</h1>
+            <p class="subtitle">Select an application to launch</p>
+            <button id="login-trigger" class="btn-admin" onclick="openModal('login-modal')"><i class="fa-solid fa-lock"></i> Admin</button>
+            <div id="admin-panel" class="hidden" style="margin-top: 20px;">
+                <span style="font-weight: bold; color: #10b981; margin-right: 15px;"><i class="fa-solid fa-shield-halved"></i> Admin Mode</span>
+                <button class="btn-primary" onclick="openAppModal()"><i class="fa-solid fa-plus"></i> Add App</button>
+                <button class="btn-danger" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+            </div>
+        </header>
+        
+        <div id="loading-state" style="text-align: center; color: #7f8c8d;">Connecting to Central DB...</div>
+        <div id="apps-grid" class="apps-grid"></div>
+    </div>
+
+    <div id="login-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Admin Login</h2>
+            <input type="email" id="login-email" placeholder="Email" class="input-field" style="margin-bottom: 10px;">
+            <input type="password" id="login-pass" placeholder="Password" class="input-field" onkeyup="if(event.key === 'Enter') login()">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+                <button class="btn-secondary" onclick="closeModal('login-modal')">Cancel</button>
+                <button class="btn-primary" onclick="login()">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="modal-title">App Details</h2>
+            <input type="text" id="edit-title" placeholder="App Title (e.g. Tags Pro)" class="input-field" style="margin-bottom: 15px;">
+            <input type="text" id="edit-url" placeholder="URL Path (e.g. /sm/tags/)" class="input-field" style="margin-bottom: 15px;">
+            <input type="text" id="edit-icon" placeholder="FontAwesome Icon (e.g. fa-tags)" class="input-field" style="margin-bottom: 15px;">
+            
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button id="btn-delete" class="btn-danger hidden" style="margin-right:auto;" onclick="deleteApp()"><i class="fa-solid fa-trash"></i> Delete</button>
+                <button class="btn-secondary" onclick="closeModal('app-modal')">Cancel</button>
+                <button class="btn-primary" onclick="saveApp()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
