@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Links Directory</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@14.0.1"></script>
+</head>
+<body>
+
+    <button id="login-trigger" class="btn-admin hidden" onclick="openModal('login-modal')"><i class="fa-solid fa-lock"></i> Admin</button>
+    <div id="admin-panel" class="hidden">
+        <span class="admin-badge"><i class="fa-solid fa-shield-halved"></i> Admin Mode</span>
+        <button class="btn-danger" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+
+    <div id="admin-dashboard-view" class="container hidden">
+        <header>
+            <h1>Links Dashboard</h1>
+            <p class="subtitle">Manage Instagram Link Pages</p>
+            <button class="btn-primary" style="margin-top:15px;" onclick="openPageModal()">+ Create New Page</button>
+        </header>
+        <div id="pages-grid" class="pages-grid"></div>
+    </div>
+
+    <div id="public-link-view" class="linktree-container hidden">
+        <div class="profile-header">
+            <div class="profile-image-wrapper">
+                <img id="public-logo" src="https://via.placeholder.com/150" alt="Logo">
+            </div>
+            <h1 id="public-name" class="profile-name">Loading...</h1>
+        </div>
+        
+        <div id="public-links" class="links-stack"></div>
+        
+        <div id="page-admin-controls" class="hidden" style="margin-top: 40px; text-align: center; padding-top: 20px; border-top: 1px solid #ddd;">
+            <button class="btn-primary" onclick="openLinkModal()"><i class="fa-solid fa-plus"></i> Add New Link</button>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="login-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Admin Login</h2>
+            <input type="email" id="login-email" placeholder="Admin Email" class="input-field" style="margin-bottom: 10px;">
+            <input type="password" id="login-pass" placeholder="Password" class="input-field" onkeyup="if(event.key === 'Enter') login()">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+                <button class="btn-secondary" onclick="closeModal('login-modal')">Cancel</button>
+                <button class="btn-primary" onclick="login()">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="page-modal-title">Page Details</h2>
+            <label class="form-label">Department Name</label>
+            <input type="text" id="edit-page-name" placeholder="e.g. AMTZ Official" class="input-field">
+            
+            <label class="form-label">URL Slug (No spaces)</label>
+            <input type="text" id="edit-page-slug" placeholder="e.g. amtz" class="input-field">
+            
+            <label class="form-label">Profile Logo</label>
+            <input type="file" id="edit-page-logo" accept="image/*" class="input-field">
+            
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button id="btn-delete-page" class="btn-danger hidden" style="margin-right:auto;" onclick="deletePage()"><i class="fa-solid fa-trash"></i></button>
+                <button class="btn-secondary" onclick="closeModal('page-modal')">Cancel</button>
+                <button class="btn-primary" onclick="savePage()">Save Page</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="link-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="link-modal-title">Link Details</h2>
+            <label class="form-label">Link Title (Visible to users) *</label>
+            <input type="text" id="edit-link-title" placeholder="e.g. Register for Event" class="input-field">
+            
+            <label class="form-label">Destination URL *</label>
+            <input type="text" id="edit-link-url" placeholder="https://..." class="input-field">
+            
+            <label class="form-label">Auto-Expire Date & Time (Optional)</label>
+            <input type="datetime-local" id="edit-link-expiry" class="input-field">
+            <small style="color:#666; display:block; margin-top:5px;">If set, the link will disappear exactly at this time.</small>
+            
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button id="btn-delete-link" class="btn-danger hidden" style="margin-right:auto;" onclick="deleteLink()"><i class="fa-solid fa-trash"></i></button>
+                <button class="btn-secondary" onclick="closeModal('link-modal')">Cancel</button>
+                <button class="btn-primary" onclick="saveLink()">Save Link</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
