@@ -31,7 +31,6 @@ async function initApp() {
     }
 }
 
-// Navigates purely back to the dashboard from a specific department page
 function goBackToDashboard() {
     window.location.href = window.location.pathname; 
 }
@@ -63,8 +62,38 @@ function renderPagesGrid() {
     });
 }
 
-function openPageModal() { editingPageId=null; currentImageId=null; document.getElementById('edit-page-name').value=''; document.getElementById('edit-page-slug').value=''; document.getElementById('edit-page-logo').value=''; document.getElementById('btn-delete-page').classList.add('hidden'); openModal('page-modal'); }
-function editPage(id) { const p = pages.find(x=>x.$id===id); editingPageId=id; currentImageId=p.imageId; document.getElementById('edit-page-name').value=p.name; document.getElementById('edit-page-slug').value=p.slug; document.getElementById('btn-delete-page').classList.remove('hidden'); openModal('page-modal'); }
+function openPageModal() { 
+    editingPageId=null; currentImageId=null; 
+    document.getElementById('edit-page-name').value=''; 
+    document.getElementById('edit-page-slug').value=''; 
+    document.getElementById('edit-page-logo').value=''; 
+    
+    // Clear new social inputs
+    ['twitter', 'linkedin', 'facebook', 'instagram', 'youtube'].forEach(platform => {
+        document.getElementById(`edit-page-${platform}`).value = '';
+    });
+
+    document.getElementById('btn-delete-page').classList.add('hidden'); 
+    openModal('page-modal'); 
+}
+
+function editPage(id) { 
+    const p = pages.find(x=>x.$id===id); 
+    editingPageId=id; 
+    currentImageId=p.imageId; 
+    document.getElementById('edit-page-name').value=p.name; 
+    document.getElementById('edit-page-slug').value=p.slug; 
+    
+    // Populate social inputs
+    document.getElementById('edit-page-twitter').value = p.twitter || '';
+    document.getElementById('edit-page-linkedin').value = p.linkedin || '';
+    document.getElementById('edit-page-facebook').value = p.facebook || '';
+    document.getElementById('edit-page-instagram').value = p.instagram || '';
+    document.getElementById('edit-page-youtube').value = p.youtube || '';
+
+    document.getElementById('btn-delete-page').classList.remove('hidden'); 
+    openModal('page-modal'); 
+}
 
 async function savePage() {
     const name = document.getElementById('edit-page-name').value.trim();
@@ -80,7 +109,18 @@ async function savePage() {
         if(currentImageId) { try { await storage.deleteFile(BUCKET_ID, currentImageId); } catch(e){} }
     }
 
-    const data = { name, slug, imageId: newImgId || '' };
+    // Capture social links
+    const data = { 
+        name, 
+        slug, 
+        imageId: newImgId || '',
+        twitter: document.getElementById('edit-page-twitter').value.trim(),
+        linkedin: document.getElementById('edit-page-linkedin').value.trim(),
+        facebook: document.getElementById('edit-page-facebook').value.trim(),
+        instagram: document.getElementById('edit-page-instagram').value.trim(),
+        youtube: document.getElementById('edit-page-youtube').value.trim()
+    };
+
     try {
         if(editingPageId) await databases.updateDocument(DB_ID, PAGES_TABLE, editingPageId, data);
         else await databases.createDocument(DB_ID, PAGES_TABLE, ID.unique(), data);
@@ -107,6 +147,20 @@ async function loadPublicView(slug) {
             document.getElementById('public-admin-header').classList.remove('hidden');
         }
 
+        // --- RENDER FROZEN BOTTOM SOCIAL BAR ---
+        const socialBar = document.getElementById('public-social-bar');
+        let socialHtml = '';
+        if (page.twitter) socialHtml += `<a href="${page.twitter}" target="_blank" class="social-round-btn twitter"><i class="fa-brands fa-x-twitter"></i></a>`;
+        if (page.linkedin) socialHtml += `<a href="${page.linkedin}" target="_blank" class="social-round-btn linkedin"><i class="fa-brands fa-linkedin-in"></i></a>`;
+        if (page.facebook) socialHtml += `<a href="${page.facebook}" target="_blank" class="social-round-btn facebook"><i class="fa-brands fa-facebook-f"></i></a>`;
+        if (page.instagram) socialHtml += `<a href="${page.instagram}" target="_blank" class="social-round-btn instagram"><i class="fa-brands fa-instagram"></i></a>`;
+        if (page.youtube) socialHtml += `<a href="${page.youtube}" target="_blank" class="social-round-btn youtube"><i class="fa-brands fa-youtube"></i></a>`;
+        
+        if(socialHtml !== '') {
+            socialBar.innerHTML = socialHtml;
+            socialBar.classList.remove('hidden');
+        }
+
         fetchLinks(slug);
     } catch(e) {}
 }
@@ -126,7 +180,6 @@ function renderBioLinks() {
     bioLinks.forEach(link => {
         const hasExpired = link.expiresAt && new Date(link.expiresAt).getTime() < now;
         
-        // Hide from public if expired, but SHOW to admin with a red warning badge
         if (hasExpired && !isAdmin) return; 
 
         let adminTools = isAdmin ? `
@@ -137,7 +190,6 @@ function renderBioLinks() {
 
         let badge = (hasExpired && isAdmin) ? `<span class="expired-badge">EXPIRED</span>` : '';
         
-        // Thumbnail Image Logic
         let imgHtml = '';
         if (link.imageId) {
             const imgUrl = storage.getFileView(BUCKET_ID, link.imageId).href;
