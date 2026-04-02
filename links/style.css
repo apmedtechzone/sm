@@ -17,18 +17,18 @@ header { text-align: center; padding: 20px; }
 .btn-edit-page { position: absolute; top: 10px; right: 10px; background: #f1f5f9; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; color: #333; }
 
 /* LINKTREE PUBLIC VIEW */
-.linktree-container { max-width: 600px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+.linktree-container { max-width: 600px; margin: 0 auto; padding: 40px 20px 90px; text-align: center; } /* 90px padding avoids overlap with fixed bar */
 .profile-image-wrapper { width: 100px; height: 100px; margin: 0 auto 15px; border-radius: 50%; padding: 4px; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.08); overflow: hidden; }
 #public-logo { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
 .profile-name { font-size: 1.5rem; font-weight: bold; margin-bottom: 30px; color: #1e293b; }
 
 .links-stack { display: flex; flex-direction: column; gap: 15px; }
 
-/* The Link Buttons (Image and Text Alignment) */
+/* The Link Buttons */
 .bio-link-btn { 
     display: flex; 
     align-items: center; 
-    justify-content: center; /* Always keeps text in the center */
+    justify-content: center; 
     width: 100%; 
     background: white; 
     color: #333; 
@@ -44,22 +44,46 @@ header { text-align: center; padding: 20px; }
     min-height: 65px; 
 }
 .bio-link-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); background: #f8fafc; }
-
-/* Link Thumbnail Logic */
-.link-thumbnail { 
-    position: absolute; /* Keeps it on the left without breaking text centering */
-    left: 8px; 
-    top: 50%; 
-    transform: translateY(-50%); 
-    width: 48px; 
-    height: 48px; 
-    border-radius: 50%; 
-    object-fit: cover; 
-}
+.link-thumbnail { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
 
 .admin-link-tools { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; gap: 5px; }
 .admin-link-tools button { padding: 6px; border-radius: 50%; background: #e2e8f0; border: none; cursor: pointer; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; color: #333;}
 .expired-badge { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: #ef4444; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
+
+/* FIXED SOCIAL BAR (NEW) */
+.social-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.05);
+    z-index: 100;
+    border-top: 1px solid #e2e8f0;
+}
+
+.social-round-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    text-decoration: none;
+    transition: transform 0.2s;
+}
+.social-round-btn:hover { transform: scale(1.1); color: white; }
+.social-round-btn.twitter { background: #000; }
+.social-round-btn.linkedin { background: #0A66C2; }
+.social-round-btn.facebook { background: #4267B2; }
+.social-round-btn.instagram { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+.social-round-btn.youtube { background: #FF0000; }
 
 /* Modals */
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(3px); }
