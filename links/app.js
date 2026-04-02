@@ -16,6 +16,7 @@ let bioLinks = [];
 let editingPageId = null;
 let editingLinkId = null;
 let currentImageId = null;
+let currentLinkImageId = null; // Track individual link images
 
 async function initApp() {
     try { await account.get(); isAdmin = true; updateUIForAdmin(); } catch (e) { isAdmin = false; document.getElementById('login-trigger').classList.remove('hidden'); }
@@ -28,6 +29,11 @@ async function initApp() {
         document.getElementById('admin-dashboard-view').classList.remove('hidden');
         await fetchPages();
     }
+}
+
+// Navigates purely back to the dashboard from a specific department page
+function goBackToDashboard() {
+    window.location.href = window.location.pathname; // This safely removes the ?d= part of the URL
 }
 
 // ==========================================
@@ -95,7 +101,10 @@ async function loadPublicView(slug) {
         document.title = `${page.name} | Links`;
         if (page.imageId) document.getElementById('public-logo').src = storage.getFileView(BUCKET_ID, page.imageId).href;
 
-        if (isAdmin) document.getElementById('page-admin-controls').classList.remove('hidden');
+        if (isAdmin) {
+            document.getElementById('page-admin-controls').classList.remove('hidden');
+            document.getElementById('public-admin-header').classList.remove('hidden');
+        }
 
         fetchLinks(slug);
     } catch(e) {}
@@ -114,7 +123,6 @@ function renderBioLinks() {
     const now = new Date().getTime();
 
     bioLinks.forEach(link => {
-        // THE EXPIRY LOGIC: Check if link has expired
         const hasExpired = link.expiresAt && new Date(link.expiresAt).getTime() < now;
         
         // Hide from public if expired, but SHOW to admin with a red warning badge
@@ -127,10 +135,18 @@ function renderBioLinks() {
             </div>` : '';
 
         let badge = (hasExpired && isAdmin) ? `<span class="expired-badge">EXPIRED</span>` : '';
+        
+        // New Thumbnail Logic
+        let imgHtml = '';
+        if (link.imageId) {
+            const imgUrl = storage.getFileView(BUCKET_ID, link.imageId).href;
+            imgHtml = `<img src="${imgUrl}" class="link-thumbnail" alt="Icon">`;
+        }
 
         container.innerHTML += `
             <a href="${link.url}" class="bio-link-btn" target="_blank" style="${hasExpired ? 'opacity:0.6;' : ''}">
-                ${badge} ${link.title}
+                ${imgHtml}
+                <span class="link-title-text">${badge} ${link.title}</span>
                 ${adminTools}
             </a>`;
     });
@@ -155,25 +171,70 @@ async function dropTarget(e, targetId) {
     try { await databases.updateDocument(DB_ID, LINKS_TABLE, draggedLinkId, { order: newOrder }); } catch(err){}
 }
 
-function openLinkModal() { editingLinkId=null; document.getElementById('edit-link-title').value=''; document.getElementById('edit-link-url').value=''; document.getElementById('edit-link-expiry').value=''; document.getElementById('btn-delete-link').classList.add('hidden'); openModal('link-modal'); }
-function editLink(id) { const l = bioLinks.find(x=>x.$id===id); editingLinkId=id; document.getElementById('edit-link-title').value=l.title; document.getElementById('edit-link-url').value=l.url; document.getElementById('edit-link-expiry').value = l.expiresAt ? new Date(l.expiresAt).toISOString().slice(0,16) : ''; document.getElementById('btn-delete-link').classList.remove('hidden'); openModal('link-modal'); }
+function openLinkModal() { 
+    editingLinkId = null; 
+    currentLinkImageId = null;
+    document.getElementById('edit-link-title').value = ''; 
+    document.getElementById('edit-link-url').value = ''; 
+    document.getElementById('edit-link-expiry').value = ''; 
+    document.getElementById('edit-link-image').value = '';
+    document.getElementById('current-link-image-text').style.display = 'none';
+    document.getElementById('btn-delete-link').classList.add('hidden'); 
+    openModal('link-modal'); 
+}
+
+function editLink(id) { 
+    const l = bioLinks.find(x=>x.$id===id); 
+    editingLinkId = id; 
+    currentLinkImageId = l.imageId || null;
+    document.getElementById('edit-link-title').value = l.title; 
+    document.getElementById('edit-link-url').value = l.url; 
+    document.getElementById('edit-link-expiry').value = l.expiresAt ? new Date(l.expiresAt).toISOString().slice(0,16) : ''; 
+    document.getElementById('edit-link-image').value = '';
+    document.getElementById('current-link-image-text').style.display = currentLinkImageId ? 'block' : 'none';
+    document.getElementById('btn-delete-link').classList.remove('hidden'); 
+    openModal('link-modal'); 
+}
 
 async function saveLink() {
+    const btn = document.getElementById('btn-save-link');
     const title = document.getElementById('edit-link-title').value.trim();
     const url = document.getElementById('edit-link-url').value.trim();
     const expiresAt = document.getElementById('edit-link-expiry').value;
     if (!title || !url) return showToast("Title and URL required", "error");
 
-    const data = { pageSlug: currentSlug, title, url, expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null };
-    if(!editingLinkId) data.order = Date.now();
+    btn.innerText = "Saving..."; btn.disabled = true;
 
     try {
+        let newImgId = currentLinkImageId;
+        const file = document.getElementById('edit-link-image').files[0];
+        if (file) {
+            const uploaded = await storage.createFile(BUCKET_ID, ID.unique(), file);
+            newImgId = uploaded.$id;
+            if(currentLinkImageId) { try { await storage.deleteFile(BUCKET_ID, currentLinkImageId); } catch(e){} }
+        }
+
+        const data = { pageSlug: currentSlug, title, url, expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null, imageId: newImgId || '' };
+        if(!editingLinkId) data.order = Date.now();
+
         if(editingLinkId) await databases.updateDocument(DB_ID, LINKS_TABLE, editingLinkId, data);
         else await databases.createDocument(DB_ID, LINKS_TABLE, ID.unique(), data);
         closeModal('link-modal'); fetchLinks(currentSlug); showToast("Link Saved");
-    } catch(e) { showToast("Error saving link", "error"); }
+    } catch(e) { 
+        showToast("Error saving link", "error"); 
+    } finally {
+        btn.innerText = "Save Link"; btn.disabled = false;
+    }
 }
-async function deleteLink() { if(confirm("Delete this link?")) { await databases.deleteDocument(DB_ID, LINKS_TABLE, editingLinkId); closeModal('link-modal'); fetchLinks(currentSlug); } }
+
+async function deleteLink() { 
+    if(confirm("Delete this link?")) { 
+        if (currentLinkImageId) { try { await storage.deleteFile(BUCKET_ID, currentLinkImageId); } catch(e){} }
+        await databases.deleteDocument(DB_ID, LINKS_TABLE, editingLinkId); 
+        closeModal('link-modal'); 
+        fetchLinks(currentSlug); 
+    } 
+}
 
 // ==========================================
 // UTILS
