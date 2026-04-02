@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Links Directory</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/appwrite@14.0.1"></script>
 </head>
 <body>
@@ -26,6 +26,11 @@
     </div>
 
     <div id="public-link-view" class="linktree-container hidden">
+        
+        <div id="public-admin-header" class="hidden" style="text-align: left; margin-bottom: 20px;">
+            <button class="btn-secondary" onclick="goBackToDashboard()"><i class="fa-solid fa-arrow-left"></i> Dashboard</button>
+        </div>
+
         <div class="profile-header">
             <div class="profile-image-wrapper">
                 <img id="public-logo" src="https://via.placeholder.com/150" alt="Logo">
@@ -35,7 +40,7 @@
         
         <div id="public-links" class="links-stack"></div>
         
-        <div id="page-admin-controls" class="hidden" style="margin-top: 40px; text-align: center; padding-top: 20px; border-top: 1px solid #ddd;">
+        <div id="page-admin-controls" class="hidden" style="margin-top: 40px; text-align: center; padding-top: 20px; border-top: 1px solid #e2e8f0;">
             <button class="btn-primary" onclick="openLinkModal()"><i class="fa-solid fa-plus"></i> Add New Link</button>
         </div>
     </div>
@@ -64,9 +69,9 @@
             <input type="text" id="edit-page-slug" placeholder="e.g. amtz" class="input-field">
             
             <label class="form-label">Profile Logo</label>
-            <input type="file" id="edit-page-logo" accept="image/*" class="input-field">
+            <input type="file" id="edit-page-logo" accept="image/*" class="input-field" style="padding: 6px; background: #f8f9fa;">
             
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:25px;">
                 <button id="btn-delete-page" class="btn-danger hidden" style="margin-right:auto;" onclick="deletePage()"><i class="fa-solid fa-trash"></i></button>
                 <button class="btn-secondary" onclick="closeModal('page-modal')">Cancel</button>
                 <button class="btn-primary" onclick="savePage()">Save Page</button>
@@ -83,18 +88,22 @@
             <label class="form-label">Destination URL *</label>
             <input type="text" id="edit-link-url" placeholder="https://..." class="input-field">
             
+            <label class="form-label">Link Thumbnail Image (Optional)</label>
+            <input type="file" id="edit-link-image" accept="image/*" class="input-field" style="padding: 6px; background: #f8f9fa;">
+            <small id="current-link-image-text" style="color:#888; display:none; margin-top: 5px;">An image is saved. Upload a new one to replace it.</small>
+
             <label class="form-label">Auto-Expire Date & Time (Optional)</label>
             <input type="datetime-local" id="edit-link-expiry" class="input-field">
             <small style="color:#666; display:block; margin-top:5px;">If set, the link will disappear exactly at this time.</small>
             
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:25px;">
                 <button id="btn-delete-link" class="btn-danger hidden" style="margin-right:auto;" onclick="deleteLink()"><i class="fa-solid fa-trash"></i></button>
                 <button class="btn-secondary" onclick="closeModal('link-modal')">Cancel</button>
-                <button class="btn-primary" onclick="saveLink()">Save Link</button>
+                <button class="btn-primary" id="btn-save-link" onclick="saveLink()">Save Link</button>
             </div>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 </html>
