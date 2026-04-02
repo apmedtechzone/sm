@@ -1,0 +1,45 @@
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+body { background: #f8fafc; min-height: 100vh; color: #333; }
+
+/* Admin UI */
+.container { max-width: 900px; margin: 0 auto; padding: 20px; }
+header { text-align: center; padding: 20px; }
+.btn-admin { position: absolute; top: 10px; right: 10px; background: white; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+#admin-panel { position: absolute; top: 10px; right: 10px; background: white; padding: 10px; border-radius: 8px; display: flex; gap: 10px; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.admin-badge { font-weight: bold; color: #10b981; }
+.hidden { display: none !important; }
+
+/* Admin Dashboard Grid */
+.pages-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; padding: 20px 0; }
+.page-card { background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: relative; }
+.page-card-logo { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; }
+.page-link { display: block; font-size: 0.8rem; color: #3b82f6; margin-top: 10px; text-decoration: none; word-break: break-all; }
+.btn-edit-page { position: absolute; top: 10px; right: 10px; background: #f1f5f9; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+
+/* LINKTREE PUBLIC VIEW */
+.linktree-container { max-width: 600px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+.profile-image-wrapper { width: 96px; height: 96px; margin: 0 auto 15px; border-radius: 50%; padding: 4px; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.08); overflow: hidden; }
+#public-logo { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
+.profile-name { font-size: 1.5rem; font-weight: bold; margin-bottom: 30px; color: #1e293b; }
+
+.links-stack { display: flex; flex-direction: column; gap: 15px; }
+.bio-link-btn { display: block; width: 100%; background: white; color: #333; padding: 18px 20px; border-radius: 30px; text-decoration: none; font-weight: 600; font-size: 1.05rem; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: transform 0.2s, box-shadow 0.2s; position: relative; }
+.bio-link-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); background: #f8fafc; }
+
+.admin-link-tools { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; gap: 5px; }
+.admin-link-tools button { padding: 6px; border-radius: 50%; background: #e2e8f0; border: none; cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+.expired-badge { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: #ef4444; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; }
+
+/* Modals */
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(3px); }
+.modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 450px; }
+.form-label { display: block; margin-top: 15px; margin-bottom: 5px; font-size: 0.9rem; font-weight: bold; color: #475569; }
+.input-field { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+button { border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-primary { background: #3b82f6; color: white; }
+.btn-secondary { background: #e2e8f0; color: #475569; }
+.btn-danger { background: #ef4444; color: white; }
+
+#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+.toast { background: #1e293b; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.toast.success { border-left: 4px solid #10b981; } .toast.error { border-left: 4px solid #ef4444; }
