@@ -7,7 +7,7 @@ const storage = new Storage(client);
 const DB_ID = '69abd4a8000d0b820e8b';
 const PAGES_TABLE = 'link_pages';
 const LINKS_TABLE = 'bio_links';
-const BUCKET_ID = '69afc921002bc8f541d7'; // Reusing your Logos bucket
+const BUCKET_ID = '69afc921002bc8f541d7'; 
 
 let isAdmin = false;
 let currentSlug = new URLSearchParams(window.location.search).get('d');
@@ -16,7 +16,7 @@ let bioLinks = [];
 let editingPageId = null;
 let editingLinkId = null;
 let currentImageId = null;
-let currentLinkImageId = null; // Track individual link images
+let currentLinkImageId = null; 
 
 async function initApp() {
     try { await account.get(); isAdmin = true; updateUIForAdmin(); } catch (e) { isAdmin = false; document.getElementById('login-trigger').classList.remove('hidden'); }
@@ -33,7 +33,7 @@ async function initApp() {
 
 // Navigates purely back to the dashboard from a specific department page
 function goBackToDashboard() {
-    window.location.href = window.location.pathname; // This safely removes the ?d= part of the URL
+    window.location.href = window.location.pathname; 
 }
 
 // ==========================================
@@ -74,6 +74,7 @@ async function savePage() {
     let newImgId = currentImageId;
     const file = document.getElementById('edit-page-logo').files[0];
     if (file) {
+        showToast("Uploading logo...");
         const uploaded = await storage.createFile(BUCKET_ID, ID.unique(), file);
         newImgId = uploaded.$id;
         if(currentImageId) { try { await storage.deleteFile(BUCKET_ID, currentImageId); } catch(e){} }
@@ -136,7 +137,7 @@ function renderBioLinks() {
 
         let badge = (hasExpired && isAdmin) ? `<span class="expired-badge">EXPIRED</span>` : '';
         
-        // New Thumbnail Logic
+        // Thumbnail Image Logic
         let imgHtml = '';
         if (link.imageId) {
             const imgUrl = storage.getFileView(BUCKET_ID, link.imageId).href;
@@ -209,6 +210,7 @@ async function saveLink() {
         let newImgId = currentLinkImageId;
         const file = document.getElementById('edit-link-image').files[0];
         if (file) {
+            showToast("Uploading image...");
             const uploaded = await storage.createFile(BUCKET_ID, ID.unique(), file);
             newImgId = uploaded.$id;
             if(currentLinkImageId) { try { await storage.deleteFile(BUCKET_ID, currentLinkImageId); } catch(e){} }
