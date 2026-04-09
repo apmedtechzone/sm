@@ -68,8 +68,7 @@ function openPageModal() {
     document.getElementById('edit-page-slug').value=''; 
     document.getElementById('edit-page-logo').value=''; 
     
-    // Clear new social inputs
-    ['twitter', 'linkedin', 'facebook', 'instagram', 'youtube'].forEach(platform => {
+    ['website', 'twitter', 'linkedin', 'facebook', 'instagram', 'youtube'].forEach(platform => {
         document.getElementById(`edit-page-${platform}`).value = '';
     });
 
@@ -84,7 +83,7 @@ function editPage(id) {
     document.getElementById('edit-page-name').value=p.name; 
     document.getElementById('edit-page-slug').value=p.slug; 
     
-    // Populate social inputs
+    document.getElementById('edit-page-website').value = p.website || '';
     document.getElementById('edit-page-twitter').value = p.twitter || '';
     document.getElementById('edit-page-linkedin').value = p.linkedin || '';
     document.getElementById('edit-page-facebook').value = p.facebook || '';
@@ -109,11 +108,11 @@ async function savePage() {
         if(currentImageId) { try { await storage.deleteFile(BUCKET_ID, currentImageId); } catch(e){} }
     }
 
-    // Capture social links
     const data = { 
         name, 
         slug, 
         imageId: newImgId || '',
+        website: document.getElementById('edit-page-website').value.trim(),
         twitter: document.getElementById('edit-page-twitter').value.trim(),
         linkedin: document.getElementById('edit-page-linkedin').value.trim(),
         facebook: document.getElementById('edit-page-facebook').value.trim(),
@@ -150,6 +149,7 @@ async function loadPublicView(slug) {
         // --- RENDER FROZEN BOTTOM SOCIAL BAR ---
         const socialBar = document.getElementById('public-social-bar');
         let socialHtml = '';
+        if (page.website) socialHtml += `<a href="${page.website}" target="_blank" class="social-round-btn website"><i class="fa-solid fa-globe"></i></a>`;
         if (page.twitter) socialHtml += `<a href="${page.twitter}" target="_blank" class="social-round-btn twitter"><i class="fa-brands fa-x-twitter"></i></a>`;
         if (page.linkedin) socialHtml += `<a href="${page.linkedin}" target="_blank" class="social-round-btn linkedin"><i class="fa-brands fa-linkedin-in"></i></a>`;
         if (page.facebook) socialHtml += `<a href="${page.facebook}" target="_blank" class="social-round-btn facebook"><i class="fa-brands fa-facebook-f"></i></a>`;
